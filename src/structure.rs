@@ -5,6 +5,7 @@ use Scale;
 use std;
 use std::ops::*;
 use constants;
+use embree_rs;
 
 /// Pixel color representation
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug, Copy)]
@@ -216,12 +217,6 @@ impl Ray {
     }
 }
 
-use embree_rs;
-impl<'a> From<&'a Ray> for embree_rs::ray::Ray {
-    fn from(ray: &'a Ray) -> Self {
-        embree_rs::ray::Ray::new(&ray.o, &ray.d, ray.tnear, ray.tfar)
-    }
-}
 use std::sync::Arc;
 use geometry::Mesh;
 use math::Frame;
@@ -246,7 +241,7 @@ pub struct Intersection<'a> {
 }
 
 impl<'a> Intersection<'a> {
-    pub fn new(embree_its: embree_rs::ray::Intersection,
+    pub fn new(embree_its: embree_rs::Intersection,
            d: Vector3<f32>, mesh: &'a Arc<Mesh>) -> Intersection<'a>{
         let frame = Frame::new( embree_its.n_s);
         let wi = frame.to_local(d);

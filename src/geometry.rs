@@ -13,7 +13,7 @@ use tools::StepRangeInt;
 /// Read obj file format and build a list of meshes
 /// for now, only add diffuse color
 /// custom texture coordinates or normals are not supported yet
-pub fn load_obj(scene: &mut embree_rs::scene::SceneConstruct, file_name: &std::path::Path) -> Result<Vec<Box<Mesh>>, tobj::LoadError> {
+pub fn load_obj(scene: &mut embree_rs::SceneConstruct, file_name: &std::path::Path) -> Result<Vec<Box<Mesh>>, tobj::LoadError> {
     println!("Try to load {:?}", file_name);
     let (models, materials) = tobj::load_obj(file_name)?;
 
@@ -37,7 +37,7 @@ pub fn load_obj(scene: &mut embree_rs::scene::SceneConstruct, file_name: &std::p
 
         let uv = if mesh.texcoords.is_empty() { vec![] } else { mesh.texcoords.chunks(2).map(|i| Vector2::new(i[0], i[1])).collect() };
 
-        let trimesh = scene.add_triangle_mesh(embree_rs::scene::GeometryFlags::Static,
+        let trimesh = scene.add_triangle_mesh(embree_rs::GeometryFlags::STATIC,
                                               vertices,
                                               normals,
                                               uv,
@@ -65,7 +65,7 @@ pub fn load_obj(scene: &mut embree_rs::scene::SceneConstruct, file_name: &std::p
 /// (Triangle) Mesh information
 pub struct Mesh {
     pub name: String,
-    pub trimesh: Arc<embree_rs::scene::TriangleMesh>,
+    pub trimesh: Arc<embree_rs::TriangleMesh>,
     pub bsdf: Box<BSDF + Send + Sync>,
     pub emission: Color,
     pub cdf: Distribution1D,
@@ -78,7 +78,7 @@ pub struct SampledPosition {
 }
 
 impl Mesh {
-    pub fn new(name: String, trimesh: Arc<embree_rs::scene::TriangleMesh>, diffuse: Color) -> Mesh {
+    pub fn new(name: String, trimesh: Arc<embree_rs::TriangleMesh>, diffuse: Color) -> Mesh {
         // Construct the mesh
         assert_eq!(trimesh.indices.len() % 3, 0);
         let nb_tri = trimesh.indices.len() / 3;

@@ -125,7 +125,7 @@ impl<'a> LightSamplingPDF<'a> {
 }
 
 /// Scene representation
-pub struct Scene<'a> {
+pub struct Scene {
     /// Main camera
     pub camera: Camera,
     // Geometry information
@@ -133,22 +133,22 @@ pub struct Scene<'a> {
     pub emitters: Vec<Arc<geometry::Mesh>>,
     emitters_cdf: Distribution1D,
     #[allow(dead_code)]
-    embree_device: embree_rs::scene::Device<'a>,
-    embree_scene: embree_rs::scene::Scene<'a>,
+    embree_device: embree_rs::Device,
+    embree_scene: embree_rs::Scene,
 }
 
-impl<'a> Scene<'a> {
+impl Scene {
     /// Take a json formatted string and an working directory
     /// and build the scene representation.
-    pub fn new(data: &str, wk: &std::path::Path) -> Result<Scene<'a>, Box<Error>> {
+    pub fn new(data: &str, wk: &std::path::Path) -> Result<Scene, Box<Error>> {
         // Read json string
         let v: serde_json::Value = serde_json::from_str(data)?;
 
         // Allocate embree
-        let mut device = embree_rs::scene::Device::new();
-        let mut scene_embree = embree_rs::scene::SceneConstruct::new(&mut device,
-            embree_rs::scene::SceneFlags::STATIC,
-            embree_rs::scene::AlgorithmFlags::INTERSECT1);
+        let mut device = embree_rs::Device::new();
+        let mut scene_embree = embree_rs::SceneConstruct::new(&mut device,
+            embree_rs::SceneFlags::STATIC,
+            embree_rs::AlgorithmFlags::INTERSECT1);
 
         // Read the object
         let obj_path_str: String = v["meshes"].as_str().unwrap().to_string();
@@ -226,7 +226,10 @@ impl<'a> Scene<'a> {
 
     /// Intersect and compute intersection information
     pub fn trace(&self, ray: &Ray) -> Option<Intersection> {
-        match self.embree_scene.intersect(ray.into()) {
+        let embree_ray = embree_rs::Ray::new(ray.o, ray.d)
+            .near(ray.tnear).far(ray.tfar);
+
+        match self.embree_scene.intersect(embree_ray) {
             None => None,
             Some(its) => {
                 let geom_id = its.geom_id as usize;
@@ -237,8 +240,8 @@ impl<'a> Scene<'a> {
 
     pub fn visible(&self, p0: &Point3<f32>, p1: &Point3<f32>) -> bool {
         let d = p1 - p0;
-        !self.embree_scene.occluded(embree_rs::ray::Ray::new(
-            p0, &d, 0.00001, 0.9999))
+        !self.embree_scene.occluded(embree_rs::Ray::new(
+            p0.clone(), d).far(0.9999))
     }
 
     pub fn direct_pdf(&self, light_sampling: LightSamplingPDF) -> f32 {
@@ -296,7 +299,7 @@ impl<'a> Scene<'a> {
 
         // Render the image blocks
         let progress_bar = Mutex::new(ProgressBar::new(image_blocks.len() as u64));
-        image_blocks.par_iter_mut().for_each(|im_block|
+        image_blocks.iter_mut().for_each(|im_block|
             {
                 let mut sampler = sampler::IndependentSampler::default();
                 for ix in 0..im_block.size.x {

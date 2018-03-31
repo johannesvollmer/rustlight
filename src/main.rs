@@ -57,12 +57,7 @@ fn classical_mc_integration(
     ////////////// Do the rendering
     info!("Rendering...");
     let start = Instant::now();
-    let pool = match nb_threads {
-        None => rayon::ThreadPoolBuilder::new(),
-        Some(x) => rayon::ThreadPoolBuilder::new().num_threads(x),
-    }.build()
-        .unwrap();
-    let img = pool.install(|| scene.render(int, nb_samples));
+    let img = scene.render(int, nb_samples);
     let elapsed = start.elapsed();
     info!(
         "Elapsed: {} ms",
@@ -80,12 +75,7 @@ fn gradient_domain_integration(
 ) -> Bitmap<Color> {
     info!("Rendering...");
     let start = Instant::now();
-    let pool = match nb_threads {
-        None => rayon::ThreadPoolBuilder::new(),
-        Some(x) => rayon::ThreadPoolBuilder::new().num_threads(x),
-    }.build()
-        .unwrap();
-    let img_grad = pool.install(|| scene.render(int, nb_samples));
+    let img_grad = scene.render(int, nb_samples);
     let elapsed = start.elapsed();
     info!(
         "Elapsed: {} ms",
