@@ -526,6 +526,7 @@ impl Bitmap {
 
         // Open the EXR file.
         // exrs TODO does not support all compression types
+        // exrs TODO write without pre-allocating a buffer but instead take a closure that convers the stuff
         let image = rgba::Image::read_from_file(filename, read_options::default()).unwrap();
 
         debug_assert!(!image.has_alpha_channel); // exrs TODO add simple pixel iterator!
