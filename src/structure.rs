@@ -7,8 +7,8 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use cgmath::{EuclideanSpace, Point2, Point3, Vector2, Vector3};
 #[cfg(feature = "image")]
 use image::{DynamicImage, GenericImage, Pixel};
-#[cfg(feature = "openexr")]
-use openexr;
+#[cfg(feature = "exr")]
+use exr;
 use std;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -412,43 +412,35 @@ impl Bitmap {
             .expect("failed to write img into file");
     }
 
-    #[cfg(not(feature = "openexr"))]
+    #[cfg(not(feature = "exr"))]
     pub fn save_exr(&self, _imgout_path_str: &str) {
         panic!("Rustlight wasn't built with OpenExr support.");
     }
-    #[cfg(feature = "openexr")]
+    #[cfg(feature = "exr")]
     pub fn save_exr(&self, imgout_path_str: &str) {
+
         // Pixel data for floating point RGB image.
-        let mut pixel_data = vec![];
-        pixel_data.reserve((self.size.x * self.size.y) as usize);
+        let mut pixel_data = Vec::with_capacity((self.size.x * self.size.y * 3) as usize);
+
+        // exrs TODO write without pre-allocating a buffer!
         for y in 0..self.size.y {
             for x in 0..self.size.x {
-                let p = Point2::new(x, y);
-                let c = self.pixel(p);
-                pixel_data.push((c.r, c.g, c.b));
+                let rgb = self.pixel(Point2::new(x, y));
+                pixel_data.extend_from_slice(&[rgb.r, rgb.g, rgb.b]);
             }
         }
 
-        // Create a file to write to.  The `Header` determines the properties of the
-        // file, like resolution and what channels it has.
-        let mut file = std::fs::File::create(Path::new(imgout_path_str)).unwrap();
-        let mut output_file = openexr::ScanlineOutputFile::new(
-            &mut file,
-            openexr::Header::new()
-                .set_resolution(self.size.x, self.size.y)
-                .add_channel("R", openexr::PixelType::FLOAT)
-                .add_channel("G", openexr::PixelType::FLOAT)
-                .add_channel("B", openexr::PixelType::FLOAT),
-        )
-        .unwrap();
+        // Create a file to write to.
+        use exr::prelude::*;
 
-        // Create a `FrameBuffer` that points at our pixel data and describes it as
-        // RGB data.
-        let mut fb = openexr::FrameBuffer::new(self.size.x, self.size.y);
-        fb.insert_channels(&["R", "G", "B"], &pixel_data);
+        let output_file = rgba::Image::new(
+            Vec2(self.size.x as usize, self.size.y as usize),
+            false, true,
+            rgba::Pixels::F32(pixel_data)
+        );
 
         // Write pixel data to the file.
-        output_file.write_pixels(&fb).unwrap();
+        output_file.write_to_file(imgout_path_str, write_options::default()).unwrap();
     }
     pub fn save(&self, imgout_path_str: &str) {
         let output_ext = match std::path::Path::new(imgout_path_str).extension() {
@@ -465,7 +457,7 @@ impl Bitmap {
             "exr" => {
                 self.save_exr(imgout_path_str);
             }
-            _ => panic!("Unknow output file extension"),
+            _ => panic!("Unknown output file extension"),
         }
     }
 
@@ -522,41 +514,36 @@ impl Bitmap {
 
         Bitmap { size, colors }
     }
-    #[cfg(not(feature = "openexr"))]
+
+    #[cfg(not(feature = "exr"))]
     pub fn read_exr(_filename: &str) -> Self {
         panic!("Rustlight wasn't built with OpenEXR support");
     }
-    #[cfg(feature = "openexr")]
+
+    #[cfg(feature = "exr")]
     pub fn read_exr(filename: &str) -> Self {
+        use exr::prelude::*;
+
         // Open the EXR file.
-        let mut file = std::fs::File::open(filename).unwrap();
-        let mut input_file = openexr::InputFile::new(&mut file).unwrap();
+        // exrs TODO does not support all compression types
+        let image = rgba::Image::read_from_file(filename, read_options::default()).unwrap();
 
-        // Get the image dimensions, so we know how large of a buffer to make.
-        let (width, height) = input_file.header().data_dimensions();
-        let size = Vector2::new(width, height);
+        debug_assert!(!image.has_alpha_channel); // exrs TODO add simple pixel iterator!
 
-        // Buffer to read pixel data into.
-        let mut pixel_data = vec![(0.0f32, 0.0f32, 0.0f32); (width * height) as usize];
+        match image.data {
+            rgba::Pixels::F32(data) => {
+                let colors = image.data.into_iter()
+                    .windows(3)
+                    .map(|color| Color::new(v[0], v[1], v[2]))
+                    .collect();
 
-        // New scope because `FrameBuffer` mutably borrows `pixel_data`, so we need
-        // it to go out of scope before we can access our `pixel_data` again.
-        {
-            // Create `FrameBufferMut` that points at our pixel data and describes
-            // it as RGB data.
-            let mut fb = openexr::FrameBufferMut::new(width, height);
-            fb.insert_channels(&[("R", 0.0), ("G", 0.0), ("B", 0.0)], &mut pixel_data);
+                Bitmap { size, colors }
+            },
 
-            // Read pixel data from the file.
-            input_file.read_pixels(&mut fb).unwrap();
+            _ => unimplemented!("only f32 data for now")
         }
-
-        let colors = pixel_data
-            .into_iter()
-            .map(|v| Color::new(v.0, v.1, v.2))
-            .collect::<Vec<Color>>();
-        Bitmap { size, colors }
     }
+
     #[cfg(not(feature = "image"))]
     pub fn read_ldr_image(_filename: &str) -> Self {
         panic!("Rustlight wasn't built with image support");

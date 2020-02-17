@@ -48,7 +48,7 @@ SUBCOMMANDS:
 
 For example, to use path tracing using 128 spp:
 ```
-$ cargo run --release --features="pbrt openexr" -- -a inf -n 128 -o path.pfm ./data/cbox.json path
+$ cargo run --release --features="pbrt exr" -- -a inf -n 128 -o path.pfm ./data/cbox.json path
 ```
 
 ## Dependencies
@@ -56,7 +56,7 @@ $ cargo run --release --features="pbrt openexr" -- -a inf -n 128 -o path.pfm ./d
 Optionals : 
 
 - [image](https://github.com/image-rs/image) : load and save LDR images
-- [openexr](https://github.com/cessen/openexr-rs) : load and save EXR images
+- [exr](https://github.com/johannesvollmer/exrs) : load and save EXR images
 - [embree-rs](https://github.com/Twinklebear/embree-rs) : fast primitive/ray intersection (* not yet optional)
 - [pbrt_rs](https://github.com/beltegeuse/pbrt_rs) : read PBRT files 
 

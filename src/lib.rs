@@ -17,8 +17,8 @@ extern crate embree_rs;
 #[cfg(feature = "image")]
 extern crate image;
 // For the image (HDR) export and loading
-#[cfg(feature = "openexr")]
-extern crate openexr;
+#[cfg(feature = "exr")]
+extern crate exr;
 // For logging propose
 #[macro_use]
 extern crate log;
